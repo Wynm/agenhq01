@@ -1,0 +1,38 @@
+# ===== AgenHQ Auto-Video config =====
+# Language of the video: ar (Arabic, default), fr, en ...
+language: ar
+# Dialect/style hint for the script writer (Gemini)
+style: "عربية فصحى مبسطة قريبة من الدارجة، جمل قصيرة، أسلوب ودود"
+# edge-tts voice. Arabic examples: ar-MA-JamalNeural, ar-MA-MounaNeural, ar-SA-HamedNeural, ar-SA-ZariyahNeural
+voice: ar-MA-JamalNeural
+voice_rate: "+8%"
+# Target duration in seconds (Gemini is asked to fit this)
+min_seconds: 30
+max_seconds: 60
+# Topic pool (one is chosen at random each run, unless --topic is given)
+topics:
+  - "نصائح وحيل للهاتف (أندرويد وآيفون)"
+  - "أدوات ذكاء اصطناعي مجانية ومفيدة"
+  - "طرق مشروعة للربح من الإنترنت (بدون وعود كاذبة)"
+  - "معلومات تقنية ممتعة وغريبة"
+  - "حماية الحساب والأمان الرقمي"
+  - "اختصارات وحيل الحاسوب والإنتاجية"
+  - "شرح مفهوم تقني ببساطة (مثل الـ VPN، الكلاود، الـ API)"
+# Brand line shown on top of the video and appended to descriptions
+brand: "AgenHQ"
+website: "https://wynm.github.io/agenhq/"
+# Gemini model (free tier on aistudio.google.com)
+gemini_model: "gemini-2.5-flash"
+# Background music: put royalty-free .mp3 files in assets/music/ (picked at random). 0 = disabled
+music_volume: 0.08
+# Caption font (files in assets/fonts/)
+font: "Cairo-Variable.ttf"   # Arabic + Latin. Alternatives: NotoSansArabic-Bold.ttf, NotoNaskhArabic-Bold.ttf
+# Platforms we generate captions for
+platforms: [youtube, tiktok, instagram, facebook, x]
+# Publishers to run after the video is released. Empty = only produce, don't post.
+# Possible values: webhook, postiz, mixpost, youtube
+# (can also be overridden with the PUBLISHERS env var / repo variable, e.g. "webhook,youtube")
+publishers: []
+youtube:
+  privacy: public        # public | unlisted | private
+  category_id: "28"      # 28 = Science & Technology

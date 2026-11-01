@@ -1,0 +1,6 @@
+edge-tts>=6.1.12
+requests>=2.31
+Pillow>=10.0
+PyYAML>=6.0
+arabic-reshaper>=3.0
+python-bidi>=0.4.2

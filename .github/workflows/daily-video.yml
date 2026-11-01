@@ -1,0 +1,104 @@
+name: Daily video
+
+on:
+  schedule:
+    - cron: "0 10 * * *"   # every day 10:00 UTC (11:00 Morocco). Add more lines for more videos/day.
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Topic (empty = random from config.yaml)"
+        required: false
+        default: ""
+      language:
+        description: "Language (ar, fr, en...) - empty = config.yaml"
+        required: false
+        default: ""
+      voice:
+        description: "edge-tts voice (e.g. ar-MA-JamalNeural, ar-SA-HamedNeural) - empty = config.yaml"
+        required: false
+        default: ""
+      publish:
+        description: "Publish with the configured publishers?"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-video
+  cancel-in-progress: false
+
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system packages
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libraqm0 libfribidi0 libharfbuzz0b
+
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+
+      - name: Make video
+        id: make
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          VIDEO_LANGUAGE: ${{ inputs.language }}
+          VIDEO_VOICE: ${{ inputs.voice }}
+          VIDEO_TOPIC: ${{ inputs.topic }}
+        run: python -m autovid.main make --out out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ steps.make.outputs.video_id }}
+          path: ${{ steps.make.outputs.video_dir }}
+          retention-days: 30
+
+      - name: Create GitHub Release (public video URL)
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DIR="${{ steps.make.outputs.video_dir }}"
+          TAG="video-${{ steps.make.outputs.video_id }}"
+          TITLE=$(python -c "import json;print(json.load(open('$DIR/meta.json'))['title'])")
+          python -c "import json;m=json.load(open('$DIR/meta.json'));print(m['description']+'\n\n'+'\n'.join(m.get('credits',[])))" > notes.md
+          gh release create "$TAG" "$DIR/video.mp4" "$DIR/meta.json" --title "$TITLE" --notes-file notes.md
+          echo "video_url=https://github.com/${{ github.repository }}/releases/download/$TAG/video.mp4" >> "$GITHUB_OUTPUT"
+
+      - name: Save history (no duplicate ideas)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history.json
+          git commit -m "history: ${{ steps.make.outputs.video_id }} [skip ci]" || exit 0
+          git pull --rebase -q && git push
+
+      - name: Publish
+        if: ${{ github.event_name == 'schedule' || inputs.publish }}
+        env:
+          PUBLISHERS: ${{ vars.PUBLISHERS }}
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          POSTIZ_API_URL: ${{ vars.POSTIZ_API_URL }}
+          POSTIZ_INTEGRATIONS: ${{ vars.POSTIZ_INTEGRATIONS }}
+          POSTIZ_POST_TYPE: ${{ vars.POSTIZ_POST_TYPE }}
+          POST_WEBHOOK_URL: ${{ secrets.POST_WEBHOOK_URL }}
+          POST_WEBHOOK_TOKEN: ${{ secrets.POST_WEBHOOK_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          MIXPOST_URL: ${{ vars.MIXPOST_URL }}
+          MIXPOST_TOKEN: ${{ secrets.MIXPOST_TOKEN }}
+          MIXPOST_WORKSPACE: ${{ vars.MIXPOST_WORKSPACE }}
+          MIXPOST_ACCOUNTS: ${{ vars.MIXPOST_ACCOUNTS }}
+        run: python -m autovid.main publish --meta "${{ steps.make.outputs.video_dir }}/meta.json" --video-url "${{ steps.release.outputs.video_url }}"
